@@ -4,8 +4,15 @@ import sgMail from '@sendgrid/mail'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 // Initialize SendGrid with API key
-sgMail.setApiKey(process.env.SENDGRID_API_KEY || '')
+const sendGridApiKey = process.env.SENDGRID_API_KEY
+if (!sendGridApiKey?.startsWith('SG.')) {
+    console.warn('Warning: Invalid or missing SendGrid API key')
+}
+sgMail.setApiKey(sendGridApiKey || '')
 
 export async function POST(req: Request) {
     try {
@@ -15,6 +22,14 @@ export async function POST(req: Request) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
+            )
+        }
+
+        // Verify SendGrid configuration
+        if (!sendGridApiKey?.startsWith('SG.')) {
+            return NextResponse.json(
+                { error: 'Email service not configured' },
+                { status: 503 }
             )
         }
 
@@ -66,12 +81,22 @@ export async function POST(req: Request) {
             `,
         }
 
-        // Send email using SendGrid
-        await sgMail.send(msg)
+        try {
+            // Send email using SendGrid
+            await sgMail.send(msg)
+        } catch (emailError) {
+            console.error('SendGrid error:', emailError)
+            // Still return success since the order was created
+            return NextResponse.json({
+                success: true,
+                orderId: order.id,
+                warning: 'Order created but email notification failed'
+            })
+        }
 
         return NextResponse.json({ success: true, orderId: order.id })
     } catch (error) {
-        console.error('Email sending error:', error)
+        console.error('Purchase processing error:', error)
         return NextResponse.json(
             { error: 'Failed to process purchase' },
             { status: 500 }
