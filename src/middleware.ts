@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isEnvValid } from '@/lib/env'
 
+// Type guard for NODE_ENV
+const isDevelopment = () => process.env.NODE_ENV === 'development'
+
 export async function middleware(request: NextRequest) {
     try {
         // Skip validation for static files and images
@@ -15,7 +18,7 @@ export async function middleware(request: NextRequest) {
         }
 
         // In development, be more lenient with validation
-        if (process.env.NODE_ENV === 'development') {
+        if (isDevelopment()) {
             return NextResponse.next()
         }
 
@@ -23,35 +26,39 @@ export async function middleware(request: NextRequest) {
         if (request.nextUrl.pathname.startsWith('/api/auth')) {
             if (!process.env.NEXTAUTH_SECRET) {
                 console.error('NEXTAUTH_SECRET is not configured')
-                return new NextResponse(
-                    JSON.stringify({
-                        error: 'Authentication not configured',
-                        message: 'The authentication service is not properly configured. Please contact support if this issue persists.',
-                        ...(process.env.NODE_ENV === 'development' && {
-                            details: 'NEXTAUTH_SECRET environment variable is missing'
-                        })
-                    }),
-                    {
-                        status: 503,
-                        headers: { 'content-type': 'application/json' },
-                    }
-                )
+                const response = {
+                    error: 'Authentication not configured',
+                    message: 'The authentication service is not properly configured. Please contact support if this issue persists.',
+                }
+
+                if (isDevelopment()) {
+                    Object.assign(response, {
+                        details: 'NEXTAUTH_SECRET environment variable is missing'
+                    })
+                }
+
+                return new NextResponse(JSON.stringify(response), {
+                    status: 503,
+                    headers: { 'content-type': 'application/json' },
+                })
             }
 
             if (!isEnvValid('auth')) {
-                return new NextResponse(
-                    JSON.stringify({
-                        error: 'Authentication configuration incomplete',
-                        message: 'The authentication service is not properly configured. Please contact support if this issue persists.',
-                        ...(process.env.NODE_ENV === 'development' && {
-                            details: 'Some required environment variables are missing'
-                        })
-                    }),
-                    {
-                        status: 503,
-                        headers: { 'content-type': 'application/json' },
-                    }
-                )
+                const response = {
+                    error: 'Authentication configuration incomplete',
+                    message: 'The authentication service is not properly configured. Please contact support if this issue persists.',
+                }
+
+                if (isDevelopment()) {
+                    Object.assign(response, {
+                        details: 'Some required environment variables are missing'
+                    })
+                }
+
+                return new NextResponse(JSON.stringify(response), {
+                    status: 503,
+                    headers: { 'content-type': 'application/json' },
+                })
             }
         }
 
@@ -61,19 +68,21 @@ export async function middleware(request: NextRequest) {
             !request.nextUrl.pathname.startsWith('/api/auth')
         ) {
             if (!isEnvValid('database')) {
-                return new NextResponse(
-                    JSON.stringify({
-                        error: 'Database not configured',
-                        message: 'The database service is not properly configured. Please contact support if this issue persists.',
-                        ...(process.env.NODE_ENV === 'development' && {
-                            details: 'DATABASE_URL environment variable is missing or invalid'
-                        })
-                    }),
-                    {
-                        status: 503,
-                        headers: { 'content-type': 'application/json' },
-                    }
-                )
+                const response = {
+                    error: 'Database not configured',
+                    message: 'The database service is not properly configured. Please contact support if this issue persists.',
+                }
+
+                if (isDevelopment()) {
+                    Object.assign(response, {
+                        details: 'DATABASE_URL environment variable is missing or invalid'
+                    })
+                }
+
+                return new NextResponse(JSON.stringify(response), {
+                    status: 503,
+                    headers: { 'content-type': 'application/json' },
+                })
             }
         }
 
@@ -81,19 +90,21 @@ export async function middleware(request: NextRequest) {
     } catch (err: any) {
         console.error('Middleware error:', err)
 
-        return new NextResponse(
-            JSON.stringify({
-                error: 'Internal server error',
-                message: 'An unexpected error occurred. Please try again later.',
-                ...(process.env.NODE_ENV === 'development' && {
-                    details: err.message
-                })
-            }),
-            {
-                status: 500,
-                headers: { 'content-type': 'application/json' },
-            }
-        )
+        const response = {
+            error: 'Internal server error',
+            message: 'An unexpected error occurred. Please try again later.',
+        }
+
+        if (isDevelopment()) {
+            Object.assign(response, {
+                details: err.message
+            })
+        }
+
+        return new NextResponse(JSON.stringify(response), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+        })
     }
 }
 
