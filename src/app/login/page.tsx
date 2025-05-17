@@ -5,6 +5,39 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+// Error boundary component
+function ErrorBoundary({ children }: { children: React.ReactNode }) {
+    const [hasError, setHasError] = useState(false)
+
+    useEffect(() => {
+        const handleError = (error: ErrorEvent) => {
+            console.error('Error caught by boundary:', error)
+            setHasError(true)
+        }
+
+        window.addEventListener('error', handleError)
+        return () => window.removeEventListener('error', handleError)
+    }, [])
+
+    if (hasError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <h2 className="text-xl font-semibold text-red-600">Something went wrong</h2>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="mt-4 text-indigo-600 hover:text-indigo-500"
+                    >
+                        Try again
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    return children
+}
+
 function LoginForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -15,6 +48,9 @@ function LoginForm() {
     useEffect(() => {
         if (searchParams?.get('registered')) {
             setSuccess('Registration successful! Please sign in.')
+        }
+        if (searchParams?.get('error')) {
+            setError('An error occurred. Please try again.')
         }
     }, [searchParams])
 
@@ -124,12 +160,14 @@ function LoginForm() {
 
 export default function LoginPage() {
     return (
-        <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">Loading...</div>
-            </div>
-        }>
-            <LoginForm />
-        </Suspense>
+        <ErrorBoundary>
+            <Suspense fallback={
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="text-center">Loading...</div>
+                </div>
+            }>
+                <LoginForm />
+            </Suspense>
+        </ErrorBoundary>
     )
 } 
