@@ -29,14 +29,14 @@ export async function POST(req: Request) {
         const mockCheckoutUrl = `http://localhost:3000/checkout/success?productId=${productId}`
 
         // Create an order
-        const order = await prisma.order.create({
-            data: {
-                userId: session.user.id,
-                productId: product.id,
-                status: 'pending',
-                paymentId: 'mock-payment-id',
-            },
-        })
+        // const order = await prisma.order.create({
+        //     data: {
+        //         userId: session.user.id,
+        //         productId: product.id,
+        //         status: 'pending',
+        //         paymentId: 'mock-payment-id',
+        //     },
+        // })
 
         return NextResponse.json({ url: mockCheckoutUrl })
     } catch (error) {
