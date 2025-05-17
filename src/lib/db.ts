@@ -5,35 +5,39 @@ declare global {
 }
 
 const prismaClientSingleton = () => {
-    return new PrismaClient({
+    const prisma = new PrismaClient({
         log: ['error'],
         errorFormat: 'minimal',
-    }).$extends({
-        query: {
-            async $allOperations({ operation, args, query }) {
-                try {
-                    return await query(args)
-                } catch (error: any) {
-                    console.error(`Database ${operation} error:`, error)
-
-                    // Check if it's a connection error
-                    if (error.code === 'P1001' || error.code === 'P1002') {
-                        throw new Error('Unable to connect to the database')
-                    }
-
-                    throw error
-                }
-            },
-        },
     })
+
+    // Add error handling
+    prisma.$use(async (params, next) => {
+        try {
+            const result = await next(params)
+            return result
+        } catch (error: any) {
+            console.error(`Database ${params.action} error:`, error)
+
+            // Check if it's a connection error
+            if (error.code === 'P1001' || error.code === 'P1002') {
+                throw new Error('Unable to connect to the database')
+            }
+
+            throw error
+        }
+    })
+
+    return prisma
 }
 
+// Check if we're in development and need global singleton
 if (process.env.NODE_ENV !== 'production') {
     if (!global.prisma) {
         global.prisma = prismaClientSingleton()
     }
 }
 
+// Export singleton instance
 export const prisma = global.prisma || prismaClientSingleton()
 
 // Warm up the database connection
