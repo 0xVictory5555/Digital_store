@@ -8,19 +8,43 @@ const prismaClientSingleton = () => {
     return new PrismaClient({
         log: ['error'],
         errorFormat: 'minimal',
+    }).$extends({
+        query: {
+            async $allOperations({ operation, args, query }) {
+                try {
+                    return await query(args)
+                } catch (error: any) {
+                    console.error(`Database ${operation} error:`, error)
+
+                    // Check if it's a connection error
+                    if (error.code === 'P1001' || error.code === 'P1002') {
+                        throw new Error('Unable to connect to the database')
+                    }
+
+                    throw error
+                }
+            },
+        },
     })
 }
 
-export const prisma = globalThis.prisma ?? prismaClientSingleton()
+if (process.env.NODE_ENV !== 'production') {
+    if (!global.prisma) {
+        global.prisma = prismaClientSingleton()
+    }
+}
 
-if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma
+export const prisma = global.prisma || prismaClientSingleton()
 
-// Ensure the Prisma Client can connect to the database
+// Warm up the database connection
 prisma.$connect()
     .then(() => {
         console.log('Database connection established')
     })
     .catch((error) => {
         console.error('Failed to connect to database:', error)
-        process.exit(1)
+        // Don't exit in production, let the request handler deal with it
+        if (process.env.NODE_ENV !== 'production') {
+            process.exit(1)
+        }
     }) 
