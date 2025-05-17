@@ -3,12 +3,16 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import { prisma } from '@/lib/db'
 
-// Generate a default secret for development
-const generateDefaultSecret = () => {
-    if (process.env.NODE_ENV !== 'production') {
-        return 'development_secret_at_least_32_characters_long'
-    }
-    return process.env.NEXTAUTH_SECRET
+// Ensure required environment variables are set
+const requiredEnvVars = ['NEXTAUTH_SECRET', 'NEXTAUTH_URL'] as const
+const missingEnvVars = requiredEnvVars.filter(
+    (envVar) => !process.env[envVar]
+)
+
+if (missingEnvVars.length > 0) {
+    console.error(
+        `Missing required environment variables: ${missingEnvVars.join(', ')}`
+    )
 }
 
 declare module 'next-auth' {
@@ -30,7 +34,7 @@ declare module 'next-auth' {
 }
 
 export const authOptions: NextAuthOptions = {
-    secret: generateDefaultSecret(),
+    secret: process.env.NEXTAUTH_SECRET,
     pages: {
         signIn: '/login',
         error: '/login',
@@ -50,31 +54,36 @@ export const authOptions: NextAuthOptions = {
                 password: { label: 'Password', type: 'password' }
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials.password) {
-                    throw new Error('Please enter your email and password')
-                }
-
-                const user = await prisma.user.findUnique({
-                    where: {
-                        email: credentials.email
+                try {
+                    if (!credentials?.email || !credentials.password) {
+                        throw new Error('Please enter your email and password')
                     }
-                })
 
-                if (!user) {
-                    throw new Error('No user found with this email')
-                }
+                    const user = await prisma.user.findUnique({
+                        where: {
+                            email: credentials.email
+                        }
+                    })
 
-                const isPasswordValid = await compare(credentials.password, user.password)
+                    if (!user) {
+                        throw new Error('No user found with this email')
+                    }
 
-                if (!isPasswordValid) {
-                    throw new Error('Invalid password')
-                }
+                    const isPasswordValid = await compare(credentials.password, user.password)
 
-                return {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    isAdmin: user.isAdmin,
+                    if (!isPasswordValid) {
+                        throw new Error('Invalid password')
+                    }
+
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        isAdmin: user.isAdmin,
+                    }
+                } catch (error: any) {
+                    console.error('Authentication error:', error)
+                    throw error
                 }
             }
         })
@@ -103,4 +112,4 @@ export const authOptions: NextAuthOptions = {
         }
     },
     debug: process.env.NODE_ENV === 'development',
-} 
+}

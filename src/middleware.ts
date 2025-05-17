@@ -21,11 +21,31 @@ export async function middleware(request: NextRequest) {
 
         // Check if it's an auth-related route
         if (request.nextUrl.pathname.startsWith('/api/auth')) {
-            if (!isEnvValid('auth')) {
+            if (!process.env.NEXTAUTH_SECRET) {
+                console.error('NEXTAUTH_SECRET is not configured')
                 return new NextResponse(
                     JSON.stringify({
                         error: 'Authentication not configured',
-                        message: 'Please set the NEXTAUTH_SECRET environment variable',
+                        message: 'The authentication service is not properly configured. Please contact support if this issue persists.',
+                        ...(process.env.NODE_ENV === 'development' && {
+                            details: 'NEXTAUTH_SECRET environment variable is missing'
+                        })
+                    }),
+                    {
+                        status: 503,
+                        headers: { 'content-type': 'application/json' },
+                    }
+                )
+            }
+
+            if (!isEnvValid('auth')) {
+                return new NextResponse(
+                    JSON.stringify({
+                        error: 'Authentication configuration incomplete',
+                        message: 'The authentication service is not properly configured. Please contact support if this issue persists.',
+                        ...(process.env.NODE_ENV === 'development' && {
+                            details: 'Some required environment variables are missing'
+                        })
                     }),
                     {
                         status: 503,
@@ -44,7 +64,10 @@ export async function middleware(request: NextRequest) {
                 return new NextResponse(
                     JSON.stringify({
                         error: 'Database not configured',
-                        message: 'Please set the DATABASE_URL environment variable',
+                        message: 'The database service is not properly configured. Please contact support if this issue persists.',
+                        ...(process.env.NODE_ENV === 'development' && {
+                            details: 'DATABASE_URL environment variable is missing or invalid'
+                        })
                     }),
                     {
                         status: 503,
@@ -61,9 +84,10 @@ export async function middleware(request: NextRequest) {
         return new NextResponse(
             JSON.stringify({
                 error: 'Internal server error',
-                message: process.env.NODE_ENV === 'development'
-                    ? err.message
-                    : 'An unexpected error occurred',
+                message: 'An unexpected error occurred. Please try again later.',
+                ...(process.env.NODE_ENV === 'development' && {
+                    details: err.message
+                })
             }),
             {
                 status: 500,
