@@ -2,14 +2,24 @@ import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/db'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: Request) {
     try {
         const { name, email, password } = await req.json()
 
-        // Validate input
-        if (!email || !password) {
+        // Input validation
+        if (!email || !email.includes('@')) {
             return NextResponse.json(
-                { error: 'Email and password are required' },
+                { error: 'Valid email is required' },
+                { status: 400 }
+            )
+        }
+
+        if (!password || password.length < 6) {
+            return NextResponse.json(
+                { error: 'Password must be at least 6 characters' },
                 { status: 400 }
             )
         }
@@ -35,14 +45,20 @@ export async function POST(req: Request) {
                 name,
                 email,
                 password: hashedPassword,
-                isAdmin: false, // Regular users are not admins by default
+                isAdmin: false,
             },
         })
 
         // Remove password from response
         const { password: _, ...userWithoutPassword } = user
 
-        return NextResponse.json(userWithoutPassword)
+        return NextResponse.json(
+            {
+                user: userWithoutPassword,
+                message: 'User created successfully'
+            },
+            { status: 201 }
+        )
     } catch (error) {
         console.error('Signup error:', error)
         return NextResponse.json(
