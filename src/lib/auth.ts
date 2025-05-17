@@ -3,6 +3,14 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import { prisma } from '@/lib/db'
 
+// Generate a default secret for development
+const generateDefaultSecret = () => {
+    if (process.env.NODE_ENV !== 'production') {
+        return 'development_secret_at_least_32_characters_long'
+    }
+    return process.env.NEXTAUTH_SECRET
+}
+
 declare module 'next-auth' {
     interface Session {
         user: {
@@ -22,13 +30,16 @@ declare module 'next-auth' {
 }
 
 export const authOptions: NextAuthOptions = {
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: generateDefaultSecret(),
     pages: {
         signIn: '/login',
         error: '/login',
     },
     session: {
         strategy: 'jwt',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+    },
+    jwt: {
         maxAge: 30 * 24 * 60 * 60, // 30 days
     },
     providers: [
@@ -79,14 +90,17 @@ export const authOptions: NextAuthOptions = {
             return token
         },
         async session({ session, token }) {
-            return {
-                ...session,
-                user: {
+            if (token) {
+                session.user = {
                     ...session.user,
                     id: token.id as string,
+                    email: token.email as string,
+                    name: token.name as string | null,
                     isAdmin: token.isAdmin as boolean,
                 }
             }
+            return session
         }
-    }
+    },
+    debug: process.env.NODE_ENV === 'development',
 } 
