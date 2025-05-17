@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
-import { authOptions } from '../api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 
 type Product = {
     id: string

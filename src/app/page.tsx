@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/db'
 import ProductList from '@/components/ProductList'
-import { authOptions } from './api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 
 export default async function Home() {
   const session = await getServerSession(authOptions)
